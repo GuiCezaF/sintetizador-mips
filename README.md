@@ -15,9 +15,12 @@ Sintetizador e interpretador de partituras musicais escrito em **Assembly MIPS**
    - `[1]` **Ode to Joy — Beethoven** (Piano acústico com acordes de abertura/encerramento e dinâmica de volume)
    - `[2]` **Chiptune 8-Bit — Tema Clássico Arcade** (Onda quadrada com articulação *staccato* via `syscall 32` e progressão arcade)
    - `[3]` **Asa Branca — Luiz Gonzaga** (Sanfona com acorde introdutório e troca dinâmica para Flauta no 2º verso)
-   - `[4]` **Modo Jukebox** (Toca todas as 3 faixas em sequência)
-   - `[5]` **Seletor de Timbre / Instrumento Global** (Override de instrumento MIDI com preview sonoro em acorde)
-   - `[6]` **Demonstração de Polifonia** (Progressão `C → F → G7 → C` com 4 vozes simultâneas usando `syscall 31` + `syscall 32`)
+   - `[4]` **DOOM (E1M1) — At Doom's Gate** (Guitarra *Overdriven* com riff ostinato nítido, *power chords* e turnaround em Mi/Lá menor)
+   - `[5]` **Minecraft — C418 (Sweden / Calm)** (Piano com melodia imediata em destaque e acompanhamento suave via `syscall 31`)
+   - `[6]` **JoJo — Il Vento D'oro (3:46 a 4:00 Piano Break)** (Transcrição fiel dos 14s do riff e melodia aguda de piano em Si menor)
+   - `[7]` **Modo Jukebox** (Toca todas as 6 faixas em sequência)
+   - `[8]` **Seletor de Timbre / Instrumento Global** (Override de instrumento MIDI com preview sonoro em acorde)
+   - `[9]` **Demonstração de Polifonia** (Progressão `C → F → G7 → C` com 4 vozes simultâneas usando `syscall 31` + `syscall 32`)
    - `[0]` **Sair**
 
 > **Dica de áudio:** Verifique se o volume do sistema operacional e o sintetizador MIDI Java (Soundbank padrão do JVM) estão ativos para ouvir as notas durante a execução no MARS.
@@ -84,26 +87,28 @@ Cada entrada no catálogo ocupa **4 words (`16 bytes`)**:
 
 ## Tabela de Referência MIDI
 
-### Notas MIDI (C3 a C6)
+### Notas MIDI (C2 a C6)
 
 | Nota | C | C# / Db | D | D# / Eb | E | F | F# / Gb | G | G# / Ab | A | A# / Bb | B |
 | :---: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
+| **Oitava 2** | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 |
 | **Oitava 3** | 48 | 49 | 50 | 51 | 52 | 53 | 54 | 55 | 56 | 57 | 58 | 59 |
 | **Oitava 4** | **60** | 61 | 62 | 63 | 64 | 65 | 66 | 67 | 68 | 69 | 70 | 71 |
 | **Oitava 5** | 72 | 73 | 74 | 75 | 76 | 77 | 78 | 79 | 80 | 81 | 82 | 83 |
 | **Oitava 6** | 84 | — | — | — | — | — | — | — | — | — | — | — |
 
-*(Dó Central = `C4 = 60`. Para uso assíncrono em acordes, some `1000` ao pitch: ex. `C4` assíncrono = `1060`.)*
+*(Dó Central = `C4 = 60`. As partituras utilizam da oitava 2 até a oitava 6 (`84` = C6). Para uso assíncrono em acordes, some `1000` ao pitch: ex. `C4` assíncrono = `1060`.)*
 
 ### Instrumentos General MIDI Usados no Projeto
 
 | ID MIDI | Instrumento | Uso no Projeto |
 | :---: | :--- | :--- |
-| `0` | Acoustic Grand Piano | Padrão de *Ode to Joy* e Demo de Polifonia |
+| `0` | Acoustic Grand Piano | Padrão de *Ode to Joy*, *Minecraft (C418)*, *JoJo — Il Vento D'oro (3:46–4:00)* e Demo de Polifonia |
 | `11` | Vibraphone | Preset no seletor de timbre |
 | `19` | Church Organ | Preset no seletor de timbre |
 | `21` | Accordion (Sanfona) | Padrão de *Asa Branca* |
 | `24` | Acoustic Guitar (Nylon) | Preset no seletor de timbre |
+| `29` | Overdriven Guitar | Padrão de *DOOM (E1M1)* |
 | `40` | Violin | Preset no seletor de timbre |
 | `73` | Flute | Troca dinâmica (`-3, 73`) no 2º verso de *Asa Branca* |
 | `80` | Lead 1 (Square Wave) | Padrão de *Chiptune 8-Bit* |
