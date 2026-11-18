@@ -14,10 +14,10 @@ str_status_override:
 str_fecha_colchete:
     .asciiz "]\n"
 str_menu:
-    .asciiz "------------------------------------------------------------\n  [1] Tocar: Ode to Joy - Beethoven (Piano + Acordes)\n  [2] Tocar: Chiptune 8-Bit - Tema Arcade (Staccato + Sleep)\n  [3] Tocar: Asa Branca - Luiz Gonzaga (Sanfona <-> Flauta)\n  [4] Modo Jukebox (Tocar todas em sequencia)\n  [5] Sintetizador: Escolher Timbre / Instrumento Global\n  [6] Demonstracao de Polifonia (Syscall 31 + Syscall 32)\n  [0] Sair\n------------------------------------------------------------\nEscolha uma opcao: "
+    .asciiz "------------------------------------------------------------\n  [1] Tocar: Ode to Joy - Beethoven (Piano + Acordes)\n  [2] Tocar: Chiptune 8-Bit - Tema Arcade (Staccato + Sleep)\n  [3] Tocar: Asa Branca - Luiz Gonzaga (Sanfona <-> Flauta)\n  [4] Tocar: DOOM (E1M1) - At Doom's Gate (Overdriven Guitar)\n  [5] Tocar: Minecraft - C418 (Piano Melodico + Polifonia)\n  [6] Tocar: JoJo - Il Vento D'oro (3:46 a 4:00 Piano Break)\n  [7] Modo Jukebox (Tocar todas em sequencia)\n  [8] Sintetizador: Escolher Timbre / Instrumento Global\n  [9] Demonstracao de Polifonia (Syscall 31 + Syscall 32)\n  [0] Sair\n------------------------------------------------------------\nEscolha uma opcao: "
 
 str_op_invalida:
-    .asciiz "\n[ERRO] Opcao invalida! Digite um numero entre 0 e 6.\n"
+    .asciiz "\n[ERRO] Opcao invalida! Digite um numero entre 0 e 9.\n"
 str_saindo:
     .asciiz "\nEncerrando a Maquina de Musica. Ate logo!\n"
 
@@ -40,7 +40,7 @@ str_log_timb_ig:.asciiz "[TIMBRE]       Mudanca ignorada (Override Global ativo)
 str_log_volume: .asciiz "[VOLUME]       Volume -> "
 str_nl:         .asciiz "\n"
 
-str_jukebox_ini: .asciiz "\n=== INICIANDO MODO JUKEBOX (3 FAIXAS) ===\n"
+str_jukebox_ini: .asciiz "\n=== INICIANDO MODO JUKEBOX (6 FAIXAS) ===\n"
 str_jukebox_sep: .asciiz "\n... Preparando proxima faixa (1000ms) ...\n"
 str_jukebox_fim: .asciiz "\n=== JUKEBOX CONCLUIDO ===\n"
 
@@ -60,16 +60,22 @@ str_demo_g7:    .asciiz "\n  -> Acorde Sol com Setima (G3 + B3 + D4 + F4) - 900m
 str_demo_c_end: .asciiz "\n  -> Resolucao Do Maior (C3 + E4 + G4 + C5) - 1300ms\n"
 str_demo_fim:   .asciiz "=== FIM DA DEMO DE POLIFONIA ===\n"
 
-titulo_ode:      .asciiz "Ode to Joy - Beethoven (Sinfonia No. 9)"
-titulo_chiptune: .asciiz "Chiptune 8-Bit - Tema Classico Arcade"
-titulo_asa:      .asciiz "Asa Branca - Luiz Gonzaga"
+titulo_ode:       .asciiz "Ode to Joy - Beethoven (Sinfonia No. 9)"
+titulo_chiptune:  .asciiz "Chiptune 8-Bit - Tema Classico Arcade"
+titulo_asa:       .asciiz "Asa Branca - Luiz Gonzaga"
+titulo_doom:      .asciiz "DOOM (E1M1) - At Doom's Gate"
+titulo_minecraft: .asciiz "Minecraft - C418 (Sweden / Calm)"
+titulo_jojo:      .asciiz "JoJo Parte 5 - Il Vento D'oro (3:46 - 4:00 Piano)"
 
 # Catalogo (16 bytes/entrada): titulo_ptr, inst_padrao, vol_padrao, partitura_ptr
 .align 2
 catalogo_musicas:
-    .word titulo_ode,      0,  105, partitura_ode_to_joy
-    .word titulo_chiptune, 80, 110, partitura_chiptune
-    .word titulo_asa,      21, 100, partitura_asa_branca
+    .word titulo_ode,       0,  105, partitura_ode_to_joy
+    .word titulo_chiptune,  80, 110, partitura_chiptune
+    .word titulo_asa,       21, 100, partitura_asa_branca
+    .word titulo_doom,      29, 122, partitura_doom
+    .word titulo_minecraft, 0,  100, partitura_minecraft
+    .word titulo_jojo,      0,  118, partitura_jojo
 
 # Eventos (.word CODIGO, VALOR): 0..127 sync | 1000..1127 async | -2 pausa | -3 inst | -4 vol | -1 fim
 .align 2
@@ -290,6 +296,246 @@ partitura_asa_branca:
     .word 67, 1050
     .word -1, 0
 
+.align 2
+partitura_doom:
+    .word 1040, 1400
+    .word 52, 150
+    .word 52, 150
+    .word 64, 190
+    .word 52, 150
+    .word 52, 150
+    .word 62, 190
+    .word 52, 150
+    .word 52, 150
+    .word 60, 190
+    .word 52, 150
+    .word 52, 150
+    .word 1058, 420
+    .word 65, 420
+    .word -2, 50
+    .word 1040, 1400
+    .word 52, 150
+    .word 52, 150
+    .word 64, 190
+    .word 52, 150
+    .word 52, 150
+    .word 62, 190
+    .word 52, 150
+    .word 52, 150
+    .word 60, 190
+    .word 52, 150
+    .word 52, 150
+    .word 58, 160
+    .word 59, 160
+    .word 1052, 320
+    .word 60, 320
+    .word -2, 50
+    .word 1045, 1400
+    .word 57, 150
+    .word 57, 150
+    .word 69, 190
+    .word 57, 150
+    .word 57, 150
+    .word 67, 190
+    .word 57, 150
+    .word 57, 150
+    .word 65, 190
+    .word 57, 150
+    .word 57, 150
+    .word 63, 160
+    .word 64, 160
+    .word 1057, 320
+    .word 65, 320
+    .word -2, 60
+    .word 1052, 550
+    .word 71, 260
+    .word 67, 260
+    .word 64, 260
+    .word 59, 320
+    .word 1053, 550
+    .word 72, 260
+    .word 71, 260
+    .word 67, 260
+    .word 64, 340
+    .word 1050, 500
+    .word 69, 260
+    .word 66, 260
+    .word 62, 320
+    .word 1040, 950
+    .word 1052, 950
+    .word 1059, 950
+    .word 64, 950
+    .word -1, 0
+
+.align 2
+partitura_minecraft:
+    .word -4, 62
+    .word 1043, 1900
+    .word 1050, 1900
+    .word -4, 104
+    .word 66, 620
+    .word 64, 620
+    .word 62, 720
+    .word -2, 120
+    .word -4, 62
+    .word 1045, 1900
+    .word 1052, 1900
+    .word -4, 104
+    .word 64, 620
+    .word 61, 620
+    .word 57, 720
+    .word -2, 140
+    .word -4, 64
+    .word 1043, 2200
+    .word 1050, 2200
+    .word -4, 108
+    .word 69, 450
+    .word 71, 450
+    .word 66, 700
+    .word 62, 650
+    .word -2, 140
+    .word -4, 64
+    .word 1045, 2200
+    .word 1052, 2200
+    .word -4, 108
+    .word 64, 450
+    .word 66, 450
+    .word 64, 700
+    .word 57, 650
+    .word -2, 140
+    .word -4, 66
+    .word 1047, 2600
+    .word 1054, 2600
+    .word -4, 112
+    .word 69, 440
+    .word 71, 440
+    .word 73, 480
+    .word 74, 480
+    .word 69, 480
+    .word 66, 680
+    .word -2, 150
+    .word -4, 64
+    .word 1043, 2100
+    .word 1050, 2100
+    .word -4, 104
+    .word 67, 450
+    .word 66, 450
+    .word 64, 520
+    .word 62, 750
+    .word -2, 180
+    .word -4, 60
+    .word 1048, 1700
+    .word 1055, 1700
+    .word -4, 102
+    .word 71, 450
+    .word 67, 420
+    .word 64, 850
+    .word -4, 60
+    .word 1047, 1700
+    .word 1055, 1700
+    .word -4, 100
+    .word 71, 450
+    .word 67, 420
+    .word 62, 900
+    .word -2, 150
+    .word -4, 88
+    .word 1050, 1400
+    .word 1057, 1400
+    .word 1062, 1400
+    .word 66, 1400
+    .word -1, 0
+
+.align 2
+partitura_jojo:
+    .word 66, 300
+    .word -2, 50
+    .word 66, 160
+    .word -2, 90
+    .word 62, 220
+    .word 64, 160
+    .word 65, 160
+    .word 66, 240
+    .word 64, 220
+    .word 62, 220
+    .word 61, 160
+    .word 62, 160
+    .word 64, 220
+    .word 66, 220
+    .word 59, 320
+    .word -2, 60
+    .word 61, 160
+    .word 62, 160
+    .word 64, 200
+    .word 62, 220
+    .word 61, 220
+    .word 57, 260
+    .word -2, 80
+    .word 66, 300
+    .word -2, 50
+    .word 66, 160
+    .word -2, 90
+    .word 62, 220
+    .word 64, 160
+    .word 65, 160
+    .word 66, 240
+    .word 64, 220
+    .word 62, 220
+    .word 61, 160
+    .word 62, 160
+    .word 64, 220
+    .word 66, 220
+    .word 67, 220
+    .word 66, 220
+    .word 69, 240
+    .word 68, 240
+    .word 65, 280
+    .word -2, 100
+    .word -4, 124
+    .word 71, 300
+    .word -2, 50
+    .word 71, 160
+    .word -2, 80
+    .word 71, 160
+    .word 69, 220
+    .word 71, 240
+    .word 74, 240
+    .word 71, 220
+    .word 66, 260
+    .word -2, 60
+    .word 69, 300
+    .word -2, 50
+    .word 69, 160
+    .word -2, 80
+    .word 69, 160
+    .word 67, 220
+    .word 69, 240
+    .word 67, 220
+    .word 64, 220
+    .word 62, 260
+    .word -2, 70
+    .word 71, 300
+    .word -2, 50
+    .word 71, 160
+    .word -2, 80
+    .word 71, 160
+    .word 69, 220
+    .word 71, 240
+    .word 74, 240
+    .word 73, 220
+    .word 74, 240
+    .word 76, 240
+    .word 74, 220
+    .word 73, 220
+    .word 71, 220
+    .word 69, 220
+    .word 66, 240
+    .word -2, 60
+    .word 1047, 850
+    .word 1054, 850
+    .word 1059, 850
+    .word 71, 850
+    .word -1, 0
+
 
 .text
 .globl main
@@ -316,6 +562,12 @@ main_loop:
     beq  $v0, $t0, main_op5
     li   $t0, 6
     beq  $v0, $t0, main_op6
+    li   $t0, 7
+    beq  $v0, $t0, main_op7
+    li   $t0, 8
+    beq  $v0, $t0, main_op8
+    li   $t0, 9
+    beq  $v0, $t0, main_op9
 
     li   $v0, 4
     la   $a0, str_op_invalida
@@ -338,14 +590,29 @@ main_op3:
     j    main_loop
 
 main_op4:
-    jal  modo_jukebox
+    li   $a0, 3
+    jal  tocar_musica_catalogo
     j    main_loop
 
 main_op5:
-    jal  selecionar_instrumento
+    li   $a0, 4
+    jal  tocar_musica_catalogo
     j    main_loop
 
 main_op6:
+    li   $a0, 5
+    jal  tocar_musica_catalogo
+    j    main_loop
+
+main_op7:
+    jal  modo_jukebox
+    j    main_loop
+
+main_op8:
+    jal  selecionar_instrumento
+    j    main_loop
+
+main_op9:
     jal  demo_polifonia
     j    main_loop
 
@@ -388,7 +655,7 @@ menu_imprime_opcoes:
     syscall
     jr   $ra
 
-# Carrega entrada do catalogo ($a0 = indice 0..2) e inicia interpretacao
+# Carrega entrada do catalogo ($a0 = indice 0..5) e inicia interpretacao
 tocar_musica_catalogo:
     addiu $sp, $sp, -20
     sw   $ra, 16($sp)
@@ -398,7 +665,7 @@ tocar_musica_catalogo:
     sw   $s3, 0($sp)
 
     bltz $a0, cat_ret
-    li   $t0, 3
+    li   $t0, 6
     bge  $a0, $t0, cat_ret
 
     sll  $t0, $a0, 4        # indice * 16 bytes por entrada
@@ -468,7 +735,7 @@ jukebox_loop:
     jal  tocar_musica_catalogo
 
     addiu $s0, $s0, 1
-    li   $t0, 3
+    li   $t0, 6
     bge  $s0, $t0, jukebox_fim
 
     li   $v0, 4
