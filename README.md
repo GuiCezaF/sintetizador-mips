@@ -1,87 +1,100 @@
 # Máquina de Música — Sintetizador MIDI em Assembly MIPS (MARS 4.5)
 
-Sintetizador e interpretador de partituras musicais escrito em **Assembly MIPS** para o simulador **MARS 4.5**. O projeto estrutura partituras como sequências de eventos em memória (`.data`), reproduzindo melodias, acordes polifônicos, pausas musicais e mudanças dinâmicas de timbre e volume através das chamadas de sistema de áudio MIDI do MARS.
+Sintetizador e compilador/interpretador de partituras musicais escrito em **Assembly MIPS** para o simulador **MARS 4.5**. As partituras ficam armazenadas em arquivos de texto legíveis (`.txt`) usando notação musical em português (`DO`, `RE`, `MI`, `FA`, `SOL`, `LA`, `SI`, `#`/`b`, pausas e comandos dinâmicos), sendo lidas em tempo de execução via syscalls de arquivo (`13`, `14`, `16`), convertidas dinamicamente para eventos MIDI em memória e reproduzidas pelas syscalls de áudio e temporização (`31`, `32`, `33`).
 
 ---
 
 ## Como Abrir, Montar e Executar no MARS 4.5
 
-1. Baixe ou abra o simulador **MARS 4.5** (`Mars4_5.jar`).
-2. No menu superior, acesse **File → Open...** e selecione `sintetizador.asm`.
+- **Atalho rápido no Windows:** Execute **`iniciar_mars_hd.bat`** (dois cliques ou via terminal). Ele fixa o diretório do projeto para a leitura dos `.txt`, instala automaticamente qualquer `.sf2` presente na pasta como SoundFont HD e abre o MARS já com `sintetizador.asm` carregado.
+
+1. Caso abra manualmente, inicie o simulador **MARS 4.5** (`Mars4_5.jar`).
+   - **Importante (diretório de trabalho):** As músicas são carregadas a partir de caminhos relativos (`ode_to_joy.txt`, `chiptune.txt`, etc.). Para o MARS encontrá-las, **inicie o MARS a partir da pasta do projeto** (ex.: abra o terminal na pasta `sintetizador` e execute `java -jar Mars4_5.jar`, ou garanta que o *Working Directory* do atalho do MARS seja a pasta do repositório).
+2. No menu superior, acesse **File → Open...** e selecione `sintetizador.asm` (se ainda não estiver aberto).
 3. Pressione **`F3`** (ou **Run → Assemble**) para montar o programa.
    - Certifique-se de que a opção padrão **Settings → Permit extended (pseudo) instructions and formats** esteja habilitada.
 4. Pressione **`F5`** (ou **Run → Go**) para executar.
-5. Utilize a aba **Run I/O** no console inferior do MARS para navegar pelo menu interativo digitando o número da opção desejada e pressionando `Enter`:
-   - `[1]` **Ode to Joy — Beethoven** (Piano acústico com acordes de abertura/encerramento e dinâmica de volume)
-   - `[2]` **Chiptune 8-Bit — Tema Clássico Arcade** (Onda quadrada com articulação *staccato* via `syscall 32` e progressão arcade)
-   - `[3]` **Asa Branca — Luiz Gonzaga** (Sanfona com acorde introdutório e troca dinâmica para Flauta no 2º verso)
-   - `[4]` **DOOM (E1M1) — At Doom's Gate** (Guitarra *Overdriven* com riff ostinato nítido, *power chords* e turnaround em Mi/Lá menor)
-   - `[5]` **Minecraft — C418 (Sweden / Calm)** (Piano com melodia imediata em destaque e acompanhamento suave via `syscall 31`)
-   - `[6]` **JoJo — Il Vento D'oro (3:46 a 4:00 Piano Break)** (Transcrição fiel dos 14s do riff e melodia aguda de piano em Si menor)
-   - `[7]` **Modo Jukebox** (Toca todas as 6 faixas em sequência)
-   - `[8]` **Seletor de Timbre / Instrumento Global** (Override de instrumento MIDI com preview sonoro em acorde)
-   - `[9]` **Demonstração de Polifonia** (Progressão `C → F → G7 → C` com 4 vozes simultâneas usando `syscall 31` + `syscall 32`)
+5. Utilize a aba **Run I/O** no console inferior do MARS para navegar pelo menu interativo:
+   - `[1]` **Ode to Joy — Beethoven** (`ode_to_joy.txt`)
+   - `[2]` **Chiptune 8-Bit — Tema Clássico Arcade** (`chiptune.txt`)
+   - `[3]` **Asa Branca — Luiz Gonzaga** (`asa_branca.txt`)
+   - `[4]` **DOOM (E1M1) — At Doom's Gate** (`doom.txt`)
+   - `[5]` **Minecraft — C418 (Sweden / Calm)** (`minecraft.txt`)
+   - `[6]` **JoJo — Il Vento D'oro (3:46 a 4:00 Piano Break)** (`jojo.txt`)
+   - `[7]` **Modo Jukebox** (Carrega e toca todos os 6 arquivos `.txt` em sequência)
+   - `[8]` **Carregar e Tocar Arquivo `.txt` Customizado** (Digite o nome de qualquer partitura `.txt`, ex.: `minha_musica.txt`)
+   - `[9]` **Seletor de Timbre / Instrumento Global** (Override de instrumento MIDI com preview sonoro em acorde)
+   - `[10]` **Alternar Log Detalhado de Notas (`OFF`/`ON`)** (Padrão `OFF` para áudio sem latência; `ON` exibe eventos no console)
+   - `[11]` **Demonstração de Polifonia** (Progressão `C → F → G7 → C` com 4 vozes simultâneas via `syscall 31` + `syscall 32`)
    - `[0]` **Sair**
 
-> **Dica de áudio:** Verifique se o volume do sistema operacional e o sintetizador MIDI Java (Soundbank padrão do JVM) estão ativos para ouvir as notas durante a execução no MARS.
+---
+
+## Formato dos Arquivos de Partitura (`.txt`)
+
+Você pode editar as músicas existentes ou criar novos arquivos `.txt` e tocá-los pela opção `[8]`. Cada linha aceita um comando ou nota (linhas em branco e comentários iniciados por `#` são ignorados):
+
+| Sintaxe no `.txt` | Exemplo | Conversão para Memória (`.word CODIGO, VALOR`) |
+| :--- | :--- | :--- |
+| `<NOTA>[#\|b]<OITAVA> <MS>` | `MI4 400`, `FA#4 240`, `SIb3 320`, `dó4 400` | **Nota Síncrona (`syscall 33`)**: `CODIGO = (oitava + 1) * 12 + semitom`, `VALOR = <MS>` |
+| `+<NOTA>[#\|b]<OITAVA> <MS>` | `+DO3 700`, `+FA#3 300` | **Nota de Acorde Assíncrona (`syscall 31`)**: `CODIGO = 1000 + pitch`, `VALOR = <MS>` |
+| `PAUSA <MS>` ou `P <MS>` | `PAUSA 150`, `P 60` | **Pausa / Silêncio (`syscall 32`)**: `CODIGO = -2`, `VALOR = <MS>` |
+| `INST <0..127>` | `INST 73` | **Mudança Dinâmica de Timbre**: `CODIGO = -3`, `VALOR = <ID>` (ignorado se override global estiver ativo) |
+| `VOL <0..127>` | `VOL 108` | **Mudança Dinâmica de Volume**: `CODIGO = -4`, `VALOR = <VOL>` |
+| `# comentário` | `# Frase principal` | Ignorado até o fim da linha (`\n`) |
+
+### Regras do Parser em Assembly MIPS
+- **Notas suportadas:** `DO` (`0`), `RE` (`2`), `MI` (`4`), `FA` (`5`), `SOL` (`7`), `LA` (`9`), `SI` (`11`).
+- **Tolerância a escrita:** Aceita maiúsculas, minúsculas e vogais acentuadas (`dó4`, `ré4`, `fá#4`, `lá3`).
+- **Acidentes:** `#` soma `+1` semitom; `b` subtrai `-1` semitom.
+- **Oitavas:** `0` a `8` (padrão `4` se omitida).
+- **Acordes polifônicos:** Prefixe as primeiras vozes com `+` (`syscall 31`, retorna imediatamente) e finalize o acorde com a última voz sem `+` (`syscall 33`, aguarda a duração):
+  ```text
+  +DO4 600
+  +MI4 600
+  SOL4 600
+  ```
 
 ---
 
-## Syscalls de Áudio e Temporização Utilizadas
+## Como Melhorar a Qualidade Sonora no MARS
 
-O MARS oferece suporte nativo a MIDI e temporização através dos seguintes códigos de syscall em `$v0`:
+O MARS usa o sintetizador MIDI nativo do Java (**Gervill**) com o banco de som (*SoundFont*) padrão da JVM, que é leve porém básico — especialmente em guitarras distorcidas e pianos graves. É possível melhorar drasticamente o áudio em três frentes:
 
-| Syscall (`$v0`) | Nome | Argumentos | Comportamento |
+### 1. Modo *Zero-Latency Audio* no Código (Já Ativo por Padrão)
+Imprimir logs no console Swing do MARS (`syscall 4` / `syscall 1`) entre cada nota introduz um atraso de **~20 a 45 ms por nota**, dessincronizando acordes assíncronos e causando *jitter* rítmico em riffs rápidos (*DOOM* e *JoJo*).
+- Neste projeto, `log_detalhado` inicia em **`0` (`OFF`)**, mantendo o loop de reprodução sem chamadas de I/O de texto. Use a opção `[10]` apenas quando quiser inspecionar as notas no console.
+
+### 2. Substituir o SoundFont Padrão do Java (`.sf2`) no MARS
+> Consulte o guia completo passo a passo em **[SOUNDFONT.md](SOUNDFONT.md)** (inclui recomendações de bancos gratuitos como *GeneralUser GS* e *Roland SC-55*, além do script automático `iniciar_mars_hd.bat`).
+
+Sem alterar uma única linha do simulador, você pode trocar o banco de som padrão do Gervill por um SoundFont General MIDI de alta definição (como **GeneralUser GS**, **FluidR3_GM.sf2** ou **Timbres of Heaven**):
+1. Baixe um arquivo `.sf2` General MIDI de sua preferência.
+2. Copie o arquivo para a pasta do sintetizador Java do seu usuário com o nome **`soundbank-emg.sf2`**:
+   - **Windows:** `C:\Users\<SEU_USUARIO>\.gervill\soundbank-emg.sf2` (crie a pasta `.gervill` caso não exista) ou substitua em `<JAVA_HOME>\lib\audio\`.
+3. Reinicie o MARS 4.5 — todas as notas MIDI passarão a usar os novos samples de estúdio automaticamente.
+*(Alternativa via código Java do MARS: caso recompile o `.jar` do MARS, carregue o arquivo em `mars/mips/instructions/syscalls/ToneGenerator.java` com `synth.loadAllInstruments(MidiSystem.getSoundbank(new File("seu_banco.sf2")))`.)*
+
+### 3. Usar um Sintetizador MIDI Externo no Windows (CoolSoft VirtualMIDISynth)
+- Instale o **CoolSoft VirtualMIDISynth**, carregue um SoundFont `.sf2` de alta qualidade e defina-o como dispositivo MIDI padrão do Windows. Isso adiciona polifonia ampla, *reverb* e *chorus* reais fora da JVM.
+
+### 4. Boas Práticas de Escrita nas Partituras `.txt`
+- **Separe acompanhamento e melodia com `VOL`:** Use `VOL 60..66` antes de notas graves assíncronas (`+`) e `VOL 102..112` para a melodia principal (técnica aplicada em `minecraft.txt`).
+- **Articule notas repetidas com `PAUSA 40..90`:** Evita que ataques consecutivos da mesma tecla soem embolados (aplicado em `jojo.txt` e `chiptune.txt`).
+- **Escolha timbres de ataque rápido:** No banco padrão do Java, `29` (*Overdriven Guitar*) ataca com mais definição que `30` (*Distortion Guitar*) em riffs rápidos como `doom.txt`.
+
+---
+
+## Syscalls Utilizadas
+
+| Syscall (`$v0`) | Nome | Argumentos Principais | Uso no Projeto |
 | :---: | :--- | :--- | :--- |
-| **`31`** | `MIDI out` (Assíncrono) | `$a0` = pitch (`0..127`)<br>`$a1` = duração (`ms`)<br>`$a2` = instrumento (`0..127`)<br>`$a3` = volume (`0..127`) | Dispara a nota MIDI e **retorna imediatamente** sem bloquear a CPU. Permite empilhar múltiplas notas ao mesmo tempo para formar **acordes polifônicos**. |
-| **`32`** | `Sleep` | `$a0` = duração (`ms`) | Suspende a execução da thread pelo tempo especificado. Usada para **pausas/silêncios musicais**, articulação *staccato* e sustentação de acordes assíncronos. |
-| **`33`** | `MIDI out synchronous` | `$a0` = pitch (`0..127`)<br>`$a1` = duração (`ms`)<br>`$a2` = instrumento (`0..127`)<br>`$a3` = volume (`0..127`) | Toca a nota MIDI e **aguarda sua duração terminar** antes de retornar ao chamador. Ideal para linhas melódicas sequenciais. |
-
----
-
-## Protocolo em Memória das Partituras (`.data`)
-
-### 1. Eventos da Partitura
-Cada partitura é um array alinhado em word (`.align 2`) formado por pares consecutivos de `.word` (`8 bytes` por evento):
-
-```mips
-.word CODIGO, VALOR
-```
-
-| `CODIGO` (Word 0) | `VALOR` (Word 1) | Significado Semântico | Ação no Interpretador |
-| :---: | :---: | :--- | :--- |
-| `0` a `127` | Duração em ms (`> 0`) | **Nota Melódica Síncrona** | Executa `tocar_nota_sync` (**Syscall 33**) |
-| `1000` a `1127` | Duração em ms (`> 0`) | **Nota de Acorde Assíncrona** | Calcula `pitch = CODIGO - 1000` e executa `tocar_nota_async` (**Syscall 31**) |
-| `-2` | Duração em ms (`> 0`) | **Pausa / Silêncio Musical** | Executa `executar_pausa` (**Syscall 32**) |
-| `-3` | ID Instrumento (`0..127`) | **Mudança Dinâmica de Timbre** | Atualiza `$s1` (ignorado se `instrumento_override >= 0`) |
-| `-4` | Volume (`0..127`) | **Mudança Dinâmica de Volume** | Atualiza `$s2` para as próximas notas |
-| `-1` | `0` | **Sentinela `FIM_PARTITURA`** | Encerra o loop e retorna da sub-rotina |
-
-#### Como codificar acordes polifônicos
-Para tocar um acorde de Dó Maior (`C4=60`, `E4=64`, `G4=67`) por `600 ms`, dispare as primeiras vozes de forma assíncrona (`+1000`) e a última de forma síncrona (ou todas assíncronas seguidas de pausa `-2`):
-
-```mips
-.word 1060, 600   # Dispara C4 via Syscall 31 (nao bloqueia)
-.word 1064, 600   # Dispara E4 via Syscall 31 (nao bloqueia)
-.word 67,   600   # Toca G4 via Syscall 33 (bloqueia 600ms enquanto todas soam juntas)
-```
-
-### 2. Catálogo de Músicas (`catalogo_musicas`)
-Cada entrada no catálogo ocupa **4 words (`16 bytes`)**:
-
-- `+0`: Ponteiro para string `.asciiz` do título
-- `+4`: Instrumento General MIDI padrão (`0..127`)
-- `+8`: Volume inicial padrão (`0..127`)
-- `+12`: Ponteiro para o início do array de eventos da partitura
-
-### 3. Como Adicionar uma Nova Música
-1. Crie uma string com o título na seção `.data` (ex.: `titulo_nova: .asciiz "Minha Musica"`).
-2. Crie o array da partitura precedido por `.align 2` e finalizado obrigatoriamente com `.word -1, 0`.
-3. Adicione uma nova linha de 4 words em `catalogo_musicas`:
-   ```mips
-   .word titulo_nova, 0, 100, partitura_nova
-   ```
-4. Atualize o limite de índice em `tocar_musica_catalogo`, `modo_jukebox` e o despacho no menu `main`.
+| **`13`** | `Open File` | `$a0` = nome, `$a1` = flags (`0`), `$a2` = mode (`0`) | Abre o arquivo `.txt` e retorna descritor em `$v0` |
+| **`14`** | `Read File` | `$a0` = fd, `$a1` = `buffer_arquivo`, `$a2` = `16383` | Lê a partitura textual para a memória |
+| **`16`** | `Close File` | `$a0` = fd | Fecha o descritor após a leitura |
+| **`31`** | `MIDI out` (Assíncrono) | `$a0` = pitch, `$a1` = ms, `$a2` = inst, `$a3` = vol | Dispara notas de acorde simultâneas sem bloquear |
+| **`32`** | `Sleep` | `$a0` = ms | Executa pausas musicais e sustentação de acordes |
+| **`33`** | `MIDI out synchronous` | `$a0` = pitch, `$a1` = ms, `$a2` = inst, `$a3` = vol | Toca nota melódica aguardando sua conclusão |
 
 ---
 
@@ -89,7 +102,7 @@ Cada entrada no catálogo ocupa **4 words (`16 bytes`)**:
 
 ### Notas MIDI (C2 a C6)
 
-| Nota | C | C# / Db | D | D# / Eb | E | F | F# / Gb | G | G# / Ab | A | A# / Bb | B |
+| Nota | DO (`C`) | DO# / REb | RE (`D`) | RE# / MIb | MI (`E`) | FA (`F`) | FA# / SOLb | SOL (`G`) | SOL# / LAb | LA (`A`) | LA# / SIb | SI (`B`) |
 | :---: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
 | **Oitava 2** | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 |
 | **Oitava 3** | 48 | 49 | 50 | 51 | 52 | 53 | 54 | 55 | 56 | 57 | 58 | 59 |
@@ -97,30 +110,29 @@ Cada entrada no catálogo ocupa **4 words (`16 bytes`)**:
 | **Oitava 5** | 72 | 73 | 74 | 75 | 76 | 77 | 78 | 79 | 80 | 81 | 82 | 83 |
 | **Oitava 6** | 84 | — | — | — | — | — | — | — | — | — | — | — |
 
-*(Dó Central = `C4 = 60`. As partituras utilizam da oitava 2 até a oitava 6 (`84` = C6). Para uso assíncrono em acordes, some `1000` ao pitch: ex. `C4` assíncrono = `1060`.)*
-
 ### Instrumentos General MIDI Usados no Projeto
 
 | ID MIDI | Instrumento | Uso no Projeto |
 | :---: | :--- | :--- |
-| `0` | Acoustic Grand Piano | Padrão de *Ode to Joy*, *Minecraft (C418)*, *JoJo — Il Vento D'oro (3:46–4:00)* e Demo de Polifonia |
+| `0` | Acoustic Grand Piano | Padrão de *Ode to Joy*, *Minecraft (C418)*, *JoJo — Il Vento D'oro* e Demo de Polifonia |
 | `11` | Vibraphone | Preset no seletor de timbre |
 | `19` | Church Organ | Preset no seletor de timbre |
 | `21` | Accordion (Sanfona) | Padrão de *Asa Branca* |
 | `24` | Acoustic Guitar (Nylon) | Preset no seletor de timbre |
 | `29` | Overdriven Guitar | Padrão de *DOOM (E1M1)* |
 | `40` | Violin | Preset no seletor de timbre |
-| `73` | Flute | Troca dinâmica (`-3, 73`) no 2º verso de *Asa Branca* |
+| `73` | Flute | Troca dinâmica (`INST 73`) no 2º verso de *Asa Branca* |
 | `80` | Lead 1 (Square Wave) | Padrão de *Chiptune 8-Bit* |
 
 ---
 
-## Arquitetura de Sub-rotinas (`.text`)
+## Arquitetura de Sub-rotinas (`sintetizador.asm`)
 
-- `main` / `exibir_menu`: Interface interativa no console do MARS, validação de entrada e despacho de ações.
-- `tocar_musica_catalogo`: Lê a entrada do catálogo (`indice * 16`), aplica `instrumento_override` se ativo e invoca o interpretador.
-- `interpretar_partitura`: Motor decodificador de eventos em loop com preservação de `$ra` e `$s0-$s4` em stack frame de `24 bytes`.
-- `modo_jukebox`: Reproduz sequencialmente todas as faixas do catálogo com pausa de `1000 ms` entre elas.
-- `selecionar_instrumento`: Permite escolher presets ou ID MIDI customizado (`0..127`), ou restaurar o modo automático (`-1`), com preview sonoro em acorde.
-- `demo_polifonia`: Demonstração dedicada de acordes assíncronos de 4 vozes (`syscall 31`) temporizados com `syscall 32`.
-- `tocar_nota_sync`, `tocar_nota_async`, `executar_pausa`, `imprimir_detalhes_nota`: Procedimentos folha encapsulando syscalls e formatação de log.
+- `main` / `exibir_menu`: Loop interativo no console, status de timbre/log e despacho das opções `0..11`.
+- `tocar_musica_catalogo`: Lê metadados da entrada do catálogo (`indice * 16`), carrega o arquivo `.txt` correspondente e invoca o interpretador.
+- `tocar_arquivo_customizado`: Lê um nome de arquivo via `syscall 8`, carrega, compila e reproduz qualquer partitura `.txt`.
+- `carregar_partitura_arquivo`: Abre (`13`), lê (`14`) e fecha (`16`) o arquivo `.txt`, acionando o conversor.
+- `converter_texto_para_partitura` / `ler_inteiro_buffer`: Compila notação `DO..SI` (`#`/`b`, `+`, minúsculas/acentos), `PAUSA`/`P`, `INST` e `VOL` para pares `.word CODIGO, VALOR` em `buffer_partitura` terminando em `-1, 0`.
+- `alternar_log_detalhado`: Alterna `log_detalhado` entre `0` (*Zero-Latency Audio*) e `1` (*Debug Console*).
+- `interpretar_partitura`: Motor de execução com preservação de `$ra` e `$s0-$s4` em stack frame de `24 bytes`.
+- `modo_jukebox`, `selecionar_instrumento`, `demo_polifonia`, `tocar_nota_sync`, `tocar_nota_async`, `executar_pausa`, `imprimir_detalhes_nota`: Controle de sequência, timbres, polifonia e wrappers de syscalls.
