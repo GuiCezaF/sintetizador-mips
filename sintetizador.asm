@@ -1,23 +1,30 @@
+# Maquina de Musica - Sintetizador MIDI (MIPS / MARS 4.5)
+
 .data
 .align 2
 instrumento_override:   .word -1        # -1 = timbre da partitura; 0..127 = override global
+log_detalhado:          .word 0         # 0 = OFF (Zero-Latency Audio); 1 = ON (Debug console)
 
 .align 2
 tabela_presets_inst:    .word 0, 11, 19, 21, 24, 40, 73, 80
 
 str_banner:
-    .asciiz "\n============================================================\n  MAQUINA DE MUSICA - SINTETIZADOR MIDI \n============================================================\n"
+    .asciiz "\n============================================================\n  MAQUINA DE MUSICA - SINTETIZADOR MIDI (MIPS / MARS 4.5)\n============================================================\n"
 str_status_auto:
-    .asciiz "Timbre Ativo: [Automatico da Partitura]\n"
+    .asciiz "Timbre Ativo: [Automatico da Partitura]"
 str_status_override:
     .asciiz "Timbre Ativo: [Override Global -> MIDI ID "
 str_fecha_colchete:
-    .asciiz "]\n"
+    .asciiz "]"
+str_log_status_off:
+    .asciiz " | Log: [OFF - Alta Qualidade]\n"
+str_log_status_on:
+    .asciiz " | Log: [ON - Debug Console]\n"
 str_menu:
-    .asciiz "------------------------------------------------------------\n  [1] Tocar: Ode to Joy - Beethoven (Piano + Acordes)\n  [2] Tocar: Chiptune 8-Bit - Tema Arcade (Staccato + Sleep)\n  [3] Tocar: Asa Branca - Luiz Gonzaga (Sanfona <-> Flauta)\n  [4] Tocar: DOOM (E1M1) - At Doom's Gate (Overdriven Guitar)\n  [5] Tocar: Minecraft - C418 (Piano Melodico + Polifonia)\n  [6] Tocar: JoJo - Il Vento D'oro (3:46 a 4:00 Piano Break)\n  [7] Modo Jukebox (Tocar todas em sequencia)\n  [8] Sintetizador: Escolher Timbre / Instrumento Global\n  [9] Demonstracao de Polifonia (Syscall 31 + Syscall 32)\n  [0] Sair\n------------------------------------------------------------\nEscolha uma opcao: "
+    .asciiz "------------------------------------------------------------\n  [1]  Tocar: Ode to Joy - Beethoven (ode_to_joy.txt)\n  [2]  Tocar: Chiptune 8-Bit - Arcade (chiptune.txt)\n  [3]  Tocar: Asa Branca - Luiz Gonzaga (asa_branca.txt)\n  [4]  Tocar: DOOM (E1M1) - At Doom's Gate (doom.txt)\n  [5]  Tocar: Minecraft - C418 (minecraft.txt)\n  [6]  Tocar: JoJo - Il Vento D'oro 3:46-4:00 (jojo.txt)\n  [7]  Modo Jukebox (Tocar todas as 6 faixas dos arquivos .txt)\n  [8]  Carregar e Tocar Arquivo .txt Customizado\n  [9]  Sintetizador: Escolher Timbre / Instrumento Global\n  [10] Alternar Log Detalhado de Notas (OFF/ON)\n  [11] Demonstracao de Polifonia (Syscall 31 + Syscall 32)\n  [0]  Sair\n------------------------------------------------------------\nEscolha uma opcao: "
 
 str_op_invalida:
-    .asciiz "\n[ERRO] Opcao invalida! Digite um numero entre 0 e 9.\n"
+    .asciiz "\n[ERRO] Opcao invalida! Digite um numero entre 0 e 11.\n"
 str_saindo:
     .asciiz "\nEncerrando a Maquina de Musica. Ate logo!\n"
 
@@ -39,6 +46,17 @@ str_log_timbre: .asciiz "[TIMBRE]       Instrumento -> "
 str_log_timb_ig:.asciiz "[TIMBRE]       Mudanca ignorada (Override Global ativo)\n"
 str_log_volume: .asciiz "[VOLUME]       Volume -> "
 str_nl:         .asciiz "\n"
+
+str_arq_err1:   .asciiz "\n[ERRO] Nao foi possivel abrir o arquivo: "
+str_arq_err2:   .asciiz "\n       Verifique se o MARS foi iniciado na pasta do projeto.\n"
+str_arq_vazio:  .asciiz "\n[ERRO] Arquivo vazio ou sem eventos validos.\n"
+str_arq_ok1:    .asciiz "\n[ARQUIVO] Carregado: "
+str_arq_ok2:    .asciiz " ("
+str_arq_ok3:    .asciiz " eventos convertidos)\n"
+str_arq_prompt: .asciiz "\nDigite o nome do arquivo .txt (ex: jojo.txt): "
+
+str_toggle_off: .asciiz "\n[LOG] Modo Zero-Latency Audio ATIVADO (Log de notas: OFF).\n"
+str_toggle_on:  .asciiz "\n[LOG] Log detalhado de notas ATIVADO (Debug Console: ON).\n"
 
 str_jukebox_ini: .asciiz "\n=== INICIANDO MODO JUKEBOX (6 FAIXAS) ===\n"
 str_jukebox_sep: .asciiz "\n... Preparando proxima faixa (1000ms) ...\n"
@@ -67,474 +85,28 @@ titulo_doom:      .asciiz "DOOM (E1M1) - At Doom's Gate"
 titulo_minecraft: .asciiz "Minecraft - C418 (Sweden / Calm)"
 titulo_jojo:      .asciiz "JoJo Parte 5 - Il Vento D'oro (3:46 - 4:00 Piano)"
 
-# Catalogo (16 bytes/entrada): titulo_ptr, inst_padrao, vol_padrao, partitura_ptr
+arq_ode:          .asciiz "ode_to_joy.txt"
+arq_chiptune:     .asciiz "chiptune.txt"
+arq_asa:          .asciiz "asa_branca.txt"
+arq_doom:         .asciiz "doom.txt"
+arq_minecraft:    .asciiz "minecraft.txt"
+arq_jojo:         .asciiz "jojo.txt"
+
+# Catalogo (16 bytes/entrada): titulo_ptr, inst_padrao, vol_padrao, arquivo_ptr
 .align 2
 catalogo_musicas:
-    .word titulo_ode,       0,  105, partitura_ode_to_joy
-    .word titulo_chiptune,  80, 110, partitura_chiptune
-    .word titulo_asa,       21, 100, partitura_asa_branca
-    .word titulo_doom,      29, 122, partitura_doom
-    .word titulo_minecraft, 0,  100, partitura_minecraft
-    .word titulo_jojo,      0,  118, partitura_jojo
+    .word titulo_ode,       0,  105, arq_ode
+    .word titulo_chiptune,  80, 110, arq_chiptune
+    .word titulo_asa,       21, 100, arq_asa
+    .word titulo_doom,      29, 122, arq_doom
+    .word titulo_minecraft, 0,  100, arq_minecraft
+    .word titulo_jojo,      0,  120, arq_jojo
 
-# Eventos (.word CODIGO, VALOR): 0..127 sync | 1000..1127 async | -2 pausa | -3 inst | -4 vol | -1 fim
+# Buffers dinamicos para leitura e compilacao de partituras (.word CODIGO, VALOR)
 .align 2
-partitura_ode_to_joy:
-    .word 1048, 700
-    .word 1060, 700
-    .word 1064, 700
-    .word 67, 700
-    .word -2, 150
-    .word 64, 400
-    .word 64, 400
-    .word 65, 400
-    .word 67, 400
-    .word 67, 400
-    .word 65, 400
-    .word 64, 400
-    .word 62, 400
-    .word 60, 400
-    .word 60, 400
-    .word 62, 400
-    .word 64, 400
-    .word 64, 600
-    .word 62, 200
-    .word 62, 800
-    .word -2, 150
-    .word -4, 85
-    .word 64, 400
-    .word 64, 400
-    .word 65, 400
-    .word 67, 400
-    .word 67, 400
-    .word 65, 400
-    .word 64, 400
-    .word 62, 400
-    .word 60, 400
-    .word 60, 400
-    .word 62, 400
-    .word 64, 400
-    .word 62, 600
-    .word 60, 200
-    .word 60, 800
-    .word -2, 150
-    .word -4, 115
-    .word 62, 400
-    .word 62, 400
-    .word 64, 400
-    .word 60, 400
-    .word 62, 400
-    .word 64, 200
-    .word 65, 200
-    .word 64, 400
-    .word 60, 400
-    .word 62, 400
-    .word 64, 200
-    .word 65, 200
-    .word 64, 400
-    .word 62, 400
-    .word 60, 400
-    .word 62, 400
-    .word 55, 800
-    .word -2, 120
-    .word -4, 122
-    .word 64, 400
-    .word 64, 400
-    .word 65, 400
-    .word 67, 400
-    .word 67, 400
-    .word 65, 400
-    .word 64, 400
-    .word 62, 400
-    .word 60, 400
-    .word 60, 400
-    .word 62, 400
-    .word 64, 400
-    .word 62, 600
-    .word 60, 200
-    .word 1048, 1200
-    .word 1060, 1200
-    .word 1064, 1200
-    .word 1067, 1200
-    .word 72, 1200
-    .word -1, 0
-
-.align 2
-partitura_chiptune:
-    .word 76, 130
-    .word -2, 50
-    .word 76, 130
-    .word -2, 140
-    .word 76, 130
-    .word -2, 140
-    .word 72, 130
-    .word -2, 40
-    .word 76, 140
-    .word -2, 140
-    .word 79, 240
-    .word -2, 260
-    .word 67, 240
-    .word -2, 260
-    .word 72, 180
-    .word -2, 160
-    .word 67, 180
-    .word -2, 160
-    .word 64, 180
-    .word -2, 160
-    .word 69, 160
-    .word -2, 60
-    .word 71, 160
-    .word -2, 60
-    .word 70, 130
-    .word 69, 180
-    .word -2, 60
-    .word 67, 140
-    .word 76, 140
-    .word 79, 140
-    .word 81, 180
-    .word -2, 50
-    .word 77, 130
-    .word 79, 140
-    .word -2, 60
-    .word 76, 150
-    .word -2, 70
-    .word 72, 130
-    .word 74, 130
-    .word 71, 200
-    .word -2, 160
-    .word -4, 118
-    .word 1048, 380
-    .word 1060, 380
-    .word 64, 120
-    .word 67, 120
-    .word 72, 160
-    .word -2, 60
-    .word 1053, 380
-    .word 1065, 380
-    .word 69, 120
-    .word 72, 120
-    .word 77, 160
-    .word -2, 60
-    .word 1055, 380
-    .word 1067, 380
-    .word 71, 120
-    .word 74, 120
-    .word 79, 180
-    .word -2, 80
-    .word 60, 75
-    .word 64, 75
-    .word 67, 75
-    .word 72, 75
-    .word 76, 75
-    .word 79, 75
-    .word 1060, 750
-    .word 1064, 750
-    .word 1067, 750
-    .word 84, 750
-    .word -1, 0
-
-.align 2
-partitura_asa_branca:
-    .word 1048, 600
-    .word 1060, 600
-    .word 1064, 600
-    .word 67, 600
-    .word -2, 150
-    .word 60, 260
-    .word 62, 260
-    .word 64, 480
-    .word 67, 480
-    .word 67, 480
-    .word 64, 480
-    .word 65, 480
-    .word 65, 750
-    .word -2, 180
-    .word 60, 260
-    .word 62, 260
-    .word 64, 480
-    .word 67, 480
-    .word 67, 480
-    .word 65, 480
-    .word 64, 850
-    .word -2, 220
-    .word -3, 73
-    .word -4, 108
-    .word 60, 260
-    .word 60, 260
-    .word 62, 260
-    .word 64, 480
-    .word 67, 480
-    .word 67, 260
-    .word 65, 260
-    .word 64, 480
-    .word 60, 260
-    .word 65, 700
-    .word -2, 180
-    .word 65, 260
-    .word 64, 260
-    .word 62, 260
-    .word 62, 480
-    .word 64, 260
-    .word 62, 260
-    .word 62, 480
-    .word 60, 260
-    .word 60, 850
-    .word -2, 200
-    .word -3, 21
-    .word -4, 112
-    .word 67, 240
-    .word 64, 240
-    .word 65, 240
-    .word 62, 240
-    .word 64, 240
-    .word 60, 240
-    .word 62, 240
-    .word 59, 240
-    .word 1048, 1050
-    .word 1060, 1050
-    .word 1064, 1050
-    .word 67, 1050
-    .word -1, 0
-
-.align 2
-partitura_doom:
-    .word 1040, 1400
-    .word 52, 150
-    .word 52, 150
-    .word 64, 190
-    .word 52, 150
-    .word 52, 150
-    .word 62, 190
-    .word 52, 150
-    .word 52, 150
-    .word 60, 190
-    .word 52, 150
-    .word 52, 150
-    .word 1058, 420
-    .word 65, 420
-    .word -2, 50
-    .word 1040, 1400
-    .word 52, 150
-    .word 52, 150
-    .word 64, 190
-    .word 52, 150
-    .word 52, 150
-    .word 62, 190
-    .word 52, 150
-    .word 52, 150
-    .word 60, 190
-    .word 52, 150
-    .word 52, 150
-    .word 58, 160
-    .word 59, 160
-    .word 1052, 320
-    .word 60, 320
-    .word -2, 50
-    .word 1045, 1400
-    .word 57, 150
-    .word 57, 150
-    .word 69, 190
-    .word 57, 150
-    .word 57, 150
-    .word 67, 190
-    .word 57, 150
-    .word 57, 150
-    .word 65, 190
-    .word 57, 150
-    .word 57, 150
-    .word 63, 160
-    .word 64, 160
-    .word 1057, 320
-    .word 65, 320
-    .word -2, 60
-    .word 1052, 550
-    .word 71, 260
-    .word 67, 260
-    .word 64, 260
-    .word 59, 320
-    .word 1053, 550
-    .word 72, 260
-    .word 71, 260
-    .word 67, 260
-    .word 64, 340
-    .word 1050, 500
-    .word 69, 260
-    .word 66, 260
-    .word 62, 320
-    .word 1040, 950
-    .word 1052, 950
-    .word 1059, 950
-    .word 64, 950
-    .word -1, 0
-
-.align 2
-partitura_minecraft:
-    .word -4, 62
-    .word 1043, 1900
-    .word 1050, 1900
-    .word -4, 104
-    .word 66, 620
-    .word 64, 620
-    .word 62, 720
-    .word -2, 120
-    .word -4, 62
-    .word 1045, 1900
-    .word 1052, 1900
-    .word -4, 104
-    .word 64, 620
-    .word 61, 620
-    .word 57, 720
-    .word -2, 140
-    .word -4, 64
-    .word 1043, 2200
-    .word 1050, 2200
-    .word -4, 108
-    .word 69, 450
-    .word 71, 450
-    .word 66, 700
-    .word 62, 650
-    .word -2, 140
-    .word -4, 64
-    .word 1045, 2200
-    .word 1052, 2200
-    .word -4, 108
-    .word 64, 450
-    .word 66, 450
-    .word 64, 700
-    .word 57, 650
-    .word -2, 140
-    .word -4, 66
-    .word 1047, 2600
-    .word 1054, 2600
-    .word -4, 112
-    .word 69, 440
-    .word 71, 440
-    .word 73, 480
-    .word 74, 480
-    .word 69, 480
-    .word 66, 680
-    .word -2, 150
-    .word -4, 64
-    .word 1043, 2100
-    .word 1050, 2100
-    .word -4, 104
-    .word 67, 450
-    .word 66, 450
-    .word 64, 520
-    .word 62, 750
-    .word -2, 180
-    .word -4, 60
-    .word 1048, 1700
-    .word 1055, 1700
-    .word -4, 102
-    .word 71, 450
-    .word 67, 420
-    .word 64, 850
-    .word -4, 60
-    .word 1047, 1700
-    .word 1055, 1700
-    .word -4, 100
-    .word 71, 450
-    .word 67, 420
-    .word 62, 900
-    .word -2, 150
-    .word -4, 88
-    .word 1050, 1400
-    .word 1057, 1400
-    .word 1062, 1400
-    .word 66, 1400
-    .word -1, 0
-
-.align 2
-partitura_jojo:
-    .word 66, 300
-    .word -2, 50
-    .word 66, 160
-    .word -2, 90
-    .word 62, 220
-    .word 64, 160
-    .word 65, 160
-    .word 66, 240
-    .word 64, 220
-    .word 62, 220
-    .word 61, 160
-    .word 62, 160
-    .word 64, 220
-    .word 66, 220
-    .word 59, 320
-    .word -2, 60
-    .word 61, 160
-    .word 62, 160
-    .word 64, 200
-    .word 62, 220
-    .word 61, 220
-    .word 57, 260
-    .word -2, 80
-    .word 66, 300
-    .word -2, 50
-    .word 66, 160
-    .word -2, 90
-    .word 62, 220
-    .word 64, 160
-    .word 65, 160
-    .word 66, 240
-    .word 64, 220
-    .word 62, 220
-    .word 61, 160
-    .word 62, 160
-    .word 64, 220
-    .word 66, 220
-    .word 67, 220
-    .word 66, 220
-    .word 69, 240
-    .word 68, 240
-    .word 65, 280
-    .word -2, 100
-    .word -4, 124
-    .word 71, 300
-    .word -2, 50
-    .word 71, 160
-    .word -2, 80
-    .word 71, 160
-    .word 69, 220
-    .word 71, 240
-    .word 74, 240
-    .word 71, 220
-    .word 66, 260
-    .word -2, 60
-    .word 69, 300
-    .word -2, 50
-    .word 69, 160
-    .word -2, 80
-    .word 69, 160
-    .word 67, 220
-    .word 69, 240
-    .word 67, 220
-    .word 64, 220
-    .word 62, 260
-    .word -2, 70
-    .word 71, 300
-    .word -2, 50
-    .word 71, 160
-    .word -2, 80
-    .word 71, 160
-    .word 69, 220
-    .word 71, 240
-    .word 74, 240
-    .word 73, 220
-    .word 74, 240
-    .word 76, 240
-    .word 74, 220
-    .word 73, 220
-    .word 71, 220
-    .word 69, 220
-    .word 66, 240
-    .word -2, 60
-    .word 1047, 850
-    .word 1054, 850
-    .word 1059, 850
-    .word 71, 850
-    .word -1, 0
+buffer_partitura:       .space 4096
+buffer_arquivo:         .space 16384
+buffer_nome_arq:        .space 128
 
 
 .text
@@ -545,7 +117,7 @@ main:
 main_loop:
     jal  exibir_menu
 
-    li   $v0, 5             # read_int -> $v0
+    li   $v0, 5
     syscall
 
     beq  $v0, $zero, main_sair
@@ -568,6 +140,10 @@ main_loop:
     beq  $v0, $t0, main_op8
     li   $t0, 9
     beq  $v0, $t0, main_op9
+    li   $t0, 10
+    beq  $v0, $t0, main_op10
+    li   $t0, 11
+    beq  $v0, $t0, main_op11
 
     li   $v0, 4
     la   $a0, str_op_invalida
@@ -609,10 +185,18 @@ main_op7:
     j    main_loop
 
 main_op8:
-    jal  selecionar_instrumento
+    jal  tocar_arquivo_customizado
     j    main_loop
 
 main_op9:
+    jal  selecionar_instrumento
+    j    main_loop
+
+main_op10:
+    jal  alternar_log_detalhado
+    j    main_loop
+
+main_op11:
     jal  demo_polifonia
     j    main_loop
 
@@ -623,7 +207,7 @@ main_sair:
     li   $v0, 10
     syscall
 
-# Exibe cabecalho, status de timbre e opcoes do menu
+# Exibe cabecalho, status de timbre/log e opcoes do menu
 exibir_menu:
     li   $v0, 4
     la   $a0, str_banner
@@ -642,11 +226,25 @@ exibir_menu:
     li   $v0, 4
     la   $a0, str_fecha_colchete
     syscall
-    j    menu_imprime_opcoes
+    j    menu_status_log
 
 menu_status_auto:
     li   $v0, 4
     la   $a0, str_status_auto
+    syscall
+
+menu_status_log:
+    la   $t0, log_detalhado
+    lw   $t0, 0($t0)
+    bnez $t0, menu_log_on
+    li   $v0, 4
+    la   $a0, str_log_status_off
+    syscall
+    j    menu_imprime_opcoes
+
+menu_log_on:
+    li   $v0, 4
+    la   $a0, str_log_status_on
     syscall
 
 menu_imprime_opcoes:
@@ -655,7 +253,7 @@ menu_imprime_opcoes:
     syscall
     jr   $ra
 
-# Carrega entrada do catalogo ($a0 = indice 0..5) e inicia interpretacao
+# Carrega entrada do catalogo ($a0 = indice 0..5), le arquivo e reproduz
 tocar_musica_catalogo:
     addiu $sp, $sp, -20
     sw   $ra, 16($sp)
@@ -675,14 +273,18 @@ tocar_musica_catalogo:
     lw   $s0, 0($t0)        # titulo
     lw   $s1, 4($t0)        # instrumento padrao
     lw   $s2, 8($t0)        # volume padrao
-    lw   $s3, 12($t0)       # partitura
+    lw   $s3, 12($t0)       # ponteiro nome do arquivo
 
     la   $t2, instrumento_override
     lw   $t3, 0($t2)
-    bltz $t3, cat_sem_override
+    bltz $t3, cat_carregar
     move $s1, $t3
 
-cat_sem_override:
+cat_carregar:
+    move $a0, $s3
+    jal  carregar_partitura_arquivo
+    blez $v0, cat_ret
+
     li   $v0, 4
     la   $a0, str_play_hdr1
     syscall
@@ -705,7 +307,7 @@ cat_sem_override:
     la   $a0, str_play_hdr4
     syscall
 
-    move $a0, $s3
+    la   $a0, buffer_partitura
     move $a1, $s1
     move $a2, $s2
     jal  interpretar_partitura
@@ -717,6 +319,481 @@ cat_ret:
     lw   $s0, 12($sp)
     lw   $ra, 16($sp)
     addiu $sp, $sp, 20
+    jr   $ra
+
+# Solicita nome de arquivo .txt via console, carrega e reproduz
+tocar_arquivo_customizado:
+    addiu $sp, $sp, -8
+    sw   $ra, 4($sp)
+    sw   $s0, 0($sp)
+
+    li   $v0, 4
+    la   $a0, str_arq_prompt
+    syscall
+
+    li   $v0, 8
+    la   $a0, buffer_nome_arq
+    li   $a1, 128
+    syscall
+
+    # Remove '\n' ou '\r' do final da string lida
+    la   $t0, buffer_nome_arq
+custom_trim:
+    lbu  $t1, 0($t0)
+    beqz $t1, custom_trim_fim
+    li   $t2, 10
+    beq  $t1, $t2, custom_zera
+    li   $t2, 13
+    beq  $t1, $t2, custom_zera
+    addiu $t0, $t0, 1
+    j    custom_trim
+
+custom_zera:
+    sb   $zero, 0($t0)
+
+custom_trim_fim:
+    la   $a0, buffer_nome_arq
+    lbu  $t1, 0($a0)
+    beqz $t1, custom_ret
+
+    jal  carregar_partitura_arquivo
+    blez $v0, custom_ret
+
+    la   $t0, instrumento_override
+    lw   $s0, 0($t0)
+    bgez $s0, custom_inst_ok
+    li   $s0, 0
+
+custom_inst_ok:
+    li   $v0, 4
+    la   $a0, str_play_hdr1
+    syscall
+    li   $v0, 4
+    la   $a0, buffer_nome_arq
+    syscall
+    li   $v0, 4
+    la   $a0, str_play_hdr2
+    syscall
+    li   $v0, 1
+    move $a0, $s0
+    syscall
+    li   $v0, 4
+    la   $a0, str_play_hdr3
+    syscall
+    li   $v0, 1
+    li   $a0, 105
+    syscall
+    li   $v0, 4
+    la   $a0, str_play_hdr4
+    syscall
+
+    la   $a0, buffer_partitura
+    move $a1, $s0
+    li   $a2, 105
+    jal  interpretar_partitura
+
+custom_ret:
+    lw   $s0, 0($sp)
+    lw   $ra, 4($sp)
+    addiu $sp, $sp, 8
+    jr   $ra
+
+# Abre, le (Syscalls 13, 14, 16) e converte arquivo ($a0 = nome) para buffer_partitura; retorna $v0 = eventos ou -1
+carregar_partitura_arquivo:
+    addiu $sp, $sp, -12
+    sw   $ra, 8($sp)
+    sw   $s0, 4($sp)
+    sw   $s1, 0($sp)
+
+    move $s0, $a0
+
+    li   $v0, 13            # open file
+    move $a0, $s0
+    li   $a1, 0
+    li   $a2, 0
+    syscall
+    bltz $v0, arq_erro_abrir
+
+    move $t0, $v0           # descritor do arquivo
+    li   $v0, 14            # read file
+    move $a0, $t0
+    la   $a1, buffer_arquivo
+    li   $a2, 16383
+    syscall
+    move $s1, $v0
+
+    li   $v0, 16            # close file
+    move $a0, $t0
+    syscall
+
+    blez $s1, arq_erro_vazio
+
+    la   $t1, buffer_arquivo
+    addu $t1, $t1, $s1
+    sb   $zero, 0($t1)
+
+    la   $a0, buffer_arquivo
+    la   $a1, buffer_partitura
+    jal  converter_texto_para_partitura
+    move $s1, $v0
+    blez $s1, arq_erro_vazio
+
+    li   $v0, 4
+    la   $a0, str_arq_ok1
+    syscall
+    li   $v0, 4
+    move $a0, $s0
+    syscall
+    li   $v0, 4
+    la   $a0, str_arq_ok2
+    syscall
+    li   $v0, 1
+    move $a0, $s1
+    syscall
+    li   $v0, 4
+    la   $a0, str_arq_ok3
+    syscall
+
+    move $v0, $s1
+    j    arq_ret
+
+arq_erro_abrir:
+    li   $v0, 4
+    la   $a0, str_arq_err1
+    syscall
+    li   $v0, 4
+    move $a0, $s0
+    syscall
+    li   $v0, 4
+    la   $a0, str_arq_err2
+    syscall
+    li   $v0, -1
+    j    arq_ret
+
+arq_erro_vazio:
+    li   $v0, 4
+    la   $a0, str_arq_vazio
+    syscall
+    li   $v0, -1
+
+arq_ret:
+    lw   $s1, 0($sp)
+    lw   $s0, 4($sp)
+    lw   $ra, 8($sp)
+    addiu $sp, $sp, 12
+    jr   $ra
+
+# Converte texto ($a0) em pares (.word CODIGO, VALOR) em $a1; retorna $v0 = eventos
+converter_texto_para_partitura:
+    addiu $sp, $sp, -24
+    sw   $ra, 20($sp)
+    sw   $s0, 16($sp)       # cursor texto
+    sw   $s1, 12($sp)       # cursor buffer_partitura
+    sw   $s2, 8($sp)        # contador eventos
+    sw   $s3, 4($sp)        # flag_async (0 ou 1)
+    sw   $s4, 0($sp)        # semitom ou codigo de comando
+
+    move $s0, $a0
+    move $s1, $a1
+    li   $s2, 0
+
+conv_loop:
+    li   $t0, 510
+    bge  $s2, $t0, conv_fim
+
+    lbu  $t0, 0($s0)
+    beqz $t0, conv_fim
+
+    li   $t1, 32
+    ble  $t0, $t1, conv_espaco
+
+    li   $t1, 35            # '#'
+    beq  $t0, $t1, conv_skip_linha
+
+    li   $s3, 0
+    li   $t1, 43            # '+'
+    bne  $t0, $t1, conv_upper1
+    li   $s3, 1
+    addiu $s0, $s0, 1
+    lbu  $t0, 0($s0)
+    beqz $t0, conv_fim
+
+conv_upper1:
+    li   $t1, 97            # 'a'
+    blt  $t0, $t1, conv_dispatch
+    li   $t1, 122           # 'z'
+    bgt  $t0, $t1, conv_dispatch
+    andi $t0, $t0, 0xDF
+
+conv_dispatch:
+    li   $t1, 80            # 'P' (PAUSA)
+    beq  $t0, $t1, conv_cmd_pausa
+    li   $t1, 73            # 'I' (INST)
+    beq  $t0, $t1, conv_cmd_inst
+    li   $t1, 86            # 'V' (VOL)
+    beq  $t0, $t1, conv_cmd_vol
+
+    li   $t1, 68            # 'D' (DO)
+    beq  $t0, $t1, conv_nota_do
+    li   $t1, 82            # 'R' (RE)
+    beq  $t0, $t1, conv_nota_re
+    li   $t1, 77            # 'M' (MI)
+    beq  $t0, $t1, conv_nota_mi
+    li   $t1, 70            # 'F' (FA)
+    beq  $t0, $t1, conv_nota_fa
+    li   $t1, 76            # 'L' (LA)
+    beq  $t0, $t1, conv_nota_la
+    li   $t1, 83            # 'S' (SOL ou SI)
+    beq  $t0, $t1, conv_nota_s
+
+conv_skip_linha:
+    lbu  $t0, 0($s0)
+    beqz $t0, conv_fim
+    addiu $s0, $s0, 1
+    li   $t1, 10            # '\n'
+    beq  $t0, $t1, conv_loop
+    j    conv_skip_linha
+
+conv_espaco:
+    addiu $s0, $s0, 1
+    j    conv_loop
+
+conv_cmd_pausa:
+    li   $s4, -2
+    j    conv_cmd_ler
+
+conv_cmd_inst:
+    li   $s4, -3
+    j    conv_cmd_ler
+
+conv_cmd_vol:
+    li   $s4, -4
+
+conv_cmd_ler:
+    lbu  $t0, 0($s0)
+    li   $t1, 65
+    blt  $t0, $t1, conv_cmd_num
+    li   $t1, 122
+    bgt  $t0, $t1, conv_cmd_num
+    li   $t1, 90
+    ble  $t0, $t1, conv_cmd_avanca
+    li   $t1, 97
+    blt  $t0, $t1, conv_cmd_num
+conv_cmd_avanca:
+    addiu $s0, $s0, 1
+    j    conv_cmd_ler
+
+conv_cmd_num:
+    move $a0, $s0
+    jal  ler_inteiro_buffer
+    move $s0, $v1
+
+    li   $t0, -2
+    beq  $s4, $t0, conv_cmd_chk_pausa
+    bltz $v0, conv_loop
+    li   $t0, 127
+    bgt  $v0, $t0, conv_loop
+    move $t2, $s4
+    j    conv_grava_evento
+
+conv_cmd_chk_pausa:
+    blez $v0, conv_loop
+    move $t2, $s4
+    j    conv_grava_evento
+
+conv_nota_do:
+    li   $s4, 0
+    j    conv_nota_avanca1
+conv_nota_re:
+    li   $s4, 2
+    j    conv_nota_avanca1
+conv_nota_mi:
+    li   $s4, 4
+    j    conv_nota_avanca1
+conv_nota_fa:
+    li   $s4, 5
+    j    conv_nota_avanca1
+conv_nota_la:
+    li   $s4, 9
+    j    conv_nota_avanca1
+
+conv_nota_s:
+    lbu  $t1, 1($s0)
+    li   $t2, 97
+    blt  $t1, $t2, conv_s_chk
+    li   $t2, 122
+    bgt  $t1, $t2, conv_s_chk
+    andi $t1, $t1, 0xDF
+conv_s_chk:
+    li   $t2, 79            # 'O' (SOL)
+    beq  $t1, $t2, conv_nota_sol
+    li   $t2, 73            # 'I' (SI)
+    beq  $t1, $t2, conv_nota_si
+    j    conv_skip_linha
+
+conv_nota_sol:
+    li   $s4, 7
+    j    conv_nota_avanca1
+
+conv_nota_si:
+    li   $s4, 11
+
+conv_nota_avanca1:
+    addiu $s0, $s0, 1
+
+# Avanca bytes de acento (>= 128) e letras internas (A, E, I, L, O) parando em #, b/B ou digito
+conv_avanca_nome:
+    lbu  $t0, 0($s0)
+    beqz $t0, conv_acidente
+    li   $t1, 128
+    bge  $t0, $t1, conv_avanca_next
+    andi $t1, $t0, 0xDF
+    li   $t2, 65            # 'A'
+    beq  $t1, $t2, conv_avanca_next
+    li   $t2, 69            # 'E'
+    beq  $t1, $t2, conv_avanca_next
+    li   $t2, 73            # 'I'
+    beq  $t1, $t2, conv_avanca_next
+    li   $t2, 76            # 'L'
+    beq  $t1, $t2, conv_avanca_next
+    li   $t2, 79            # 'O'
+    beq  $t1, $t2, conv_avanca_next
+    j    conv_acidente
+
+conv_avanca_next:
+    addiu $s0, $s0, 1
+    j    conv_avanca_nome
+
+conv_acidente:
+    lbu  $t0, 0($s0)
+    li   $t1, 35            # '#'
+    beq  $t0, $t1, conv_sustenido
+    li   $t1, 98            # 'b'
+    beq  $t0, $t1, conv_bemol
+    li   $t1, 66            # 'B'
+    beq  $t0, $t1, conv_bemol
+    j    conv_oitava
+
+conv_sustenido:
+    addiu $s4, $s4, 1
+    addiu $s0, $s0, 1
+    j    conv_oitava
+
+conv_bemol:
+    addiu $s4, $s4, -1
+    addiu $s0, $s0, 1
+
+conv_oitava:
+    li   $t2, 4             # oitava padrao
+    lbu  $t0, 0($s0)
+    li   $t1, 48            # '0'
+    blt  $t0, $t1, conv_calc_pitch
+    li   $t1, 56            # '8'
+    bgt  $t0, $t1, conv_calc_pitch
+    addiu $t2, $t0, -48
+    addiu $s0, $s0, 1
+
+conv_calc_pitch:
+    addiu $t2, $t2, 1       # (oitava + 1) * 12 + semitom
+    li   $t3, 12
+    mul  $t2, $t2, $t3
+    addu $t2, $t2, $s4
+    bgez $t2, conv_clamp_hi
+    li   $t2, 0
+conv_clamp_hi:
+    li   $t3, 127
+    ble  $t2, $t3, conv_chk_async
+    li   $t2, 127
+conv_chk_async:
+    beqz $s3, conv_ler_dur
+    addiu $t2, $t2, 1000
+
+conv_ler_dur:
+    move $a0, $s0
+    move $s4, $t2
+    jal  ler_inteiro_buffer
+    move $s0, $v1
+    blez $v0, conv_loop
+    move $t2, $s4
+
+conv_grava_evento:
+    sw   $t2, 0($s1)
+    sw   $v0, 4($s1)
+    addiu $s1, $s1, 8
+    addiu $s2, $s2, 1
+    j    conv_loop
+
+conv_fim:
+    li   $t0, -1
+    sw   $t0, 0($s1)
+    sw   $zero, 4($s1)
+
+    move $v0, $s2
+    lw   $s4, 0($sp)
+    lw   $s3, 4($sp)
+    lw   $s2, 8($sp)
+    lw   $s1, 12($sp)
+    lw   $s0, 16($sp)
+    lw   $ra, 20($sp)
+    addiu $sp, $sp, 24
+    jr   $ra
+
+# Le inteiro decimal em $a0 (pula ' ' e '\t'); retorna $v0 = valor (-1 se ausente) e $v1 = novo ptr
+ler_inteiro_buffer:
+    move $t0, $a0
+    li   $v0, 0
+    li   $t3, 0
+
+lib_skip:
+    lbu  $t1, 0($t0)
+    li   $t2, 32            # ' '
+    beq  $t1, $t2, lib_skip_next
+    li   $t2, 9             # '\t'
+    beq  $t1, $t2, lib_skip_next
+    j    lib_digito
+lib_skip_next:
+    addiu $t0, $t0, 1
+    j    lib_skip
+
+lib_digito:
+    lbu  $t1, 0($t0)
+    li   $t2, 48            # '0'
+    blt  $t1, $t2, lib_fim
+    li   $t2, 57            # '9'
+    bgt  $t1, $t2, lib_fim
+
+    li   $t3, 1
+    li   $t2, 10
+    mul  $v0, $v0, $t2
+    addiu $t1, $t1, -48
+    addu $v0, $v0, $t1
+    addiu $t0, $t0, 1
+    j    lib_digito
+
+lib_fim:
+    bnez $t3, lib_ok
+    li   $v0, -1
+lib_ok:
+    move $v1, $t0
+    jr   $ra
+
+# Alterna entre modo Zero-Latency Audio (0) e Log Detalhado (1)
+alternar_log_detalhado:
+    la   $t0, log_detalhado
+    lw   $t1, 0($t0)
+    xori $t1, $t1, 1
+    sw   $t1, 0($t0)
+
+    bnez $t1, alt_log_on
+    li   $v0, 4
+    la   $a0, str_toggle_off
+    syscall
+    jr   $ra
+
+alt_log_on:
+    li   $v0, 4
+    la   $a0, str_toggle_on
+    syscall
     jr   $ra
 
 # Reproduz todas as faixas do catalogo em sequencia
@@ -792,6 +869,10 @@ interp_loop:
     li   $t0, 127
     bgt  $s3, $t0, interp_proximo
 
+    la   $t0, log_detalhado
+    lw   $t0, 0($t0)
+    beqz $t0, interp_sync_play
+
     li   $v0, 4
     la   $a0, str_log_sync
     syscall
@@ -801,6 +882,7 @@ interp_loop:
     move $a3, $s2
     jal  imprimir_detalhes_nota
 
+interp_sync_play:
     move $a0, $s3
     move $a1, $s4
     move $a2, $s1
@@ -814,6 +896,10 @@ interp_async:
     li   $t2, 127
     bgt  $t1, $t2, interp_proximo
 
+    la   $t0, log_detalhado
+    lw   $t0, 0($t0)
+    beqz $t0, interp_async_play
+
     li   $v0, 4
     la   $a0, str_log_async
     syscall
@@ -823,6 +909,7 @@ interp_async:
     move $a3, $s2
     jal  imprimir_detalhes_nota
 
+interp_async_play:
     subu $a0, $s3, 1000
     move $a1, $s4
     move $a2, $s1
@@ -831,6 +918,10 @@ interp_async:
     j    interp_proximo
 
 interp_pausa:
+    la   $t0, log_detalhado
+    lw   $t0, 0($t0)
+    beqz $t0, interp_pausa_exec
+
     li   $v0, 4
     la   $a0, str_log_pausa
     syscall
@@ -844,6 +935,7 @@ interp_pausa:
     la   $a0, str_nl
     syscall
 
+interp_pausa_exec:
     move $a0, $s4
     jal  executar_pausa
     j    interp_proximo
@@ -858,6 +950,10 @@ interp_timbre:
     bgt  $s4, $t0, interp_proximo
 
     move $s1, $s4
+    la   $t0, log_detalhado
+    lw   $t0, 0($t0)
+    beqz $t0, interp_proximo
+
     li   $v0, 4
     la   $a0, str_log_timbre
     syscall
@@ -870,6 +966,10 @@ interp_timbre:
     j    interp_proximo
 
 interp_timbre_ignorado:
+    la   $t0, log_detalhado
+    lw   $t0, 0($t0)
+    beqz $t0, interp_proximo
+
     li   $v0, 4
     la   $a0, str_log_timb_ig
     syscall
@@ -881,6 +981,10 @@ interp_volume:
     bgt  $s4, $t0, interp_proximo
 
     move $s2, $s4
+    la   $t0, log_detalhado
+    lw   $t0, 0($t0)
+    beqz $t0, interp_proximo
+
     li   $v0, 4
     la   $a0, str_log_volume
     syscall
