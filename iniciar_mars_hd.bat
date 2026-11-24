@@ -47,6 +47,10 @@ if errorlevel 1 (
 )
 
 set "MARS_JAR="
+for %%J in ("%~dp0mars\Mars*.jar") do (
+    set "MARS_JAR=%%~fJ"
+    goto :found_mars
+)
 for %%J in ("%~dp0Mars*.jar") do (
     set "MARS_JAR=%%~fJ"
     goto :found_mars

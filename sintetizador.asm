@@ -53,7 +53,7 @@ str_arq_vazio:  .asciiz "\n[ERRO] Arquivo vazio ou sem eventos validos.\n"
 str_arq_ok1:    .asciiz "\n[ARQUIVO] Carregado: "
 str_arq_ok2:    .asciiz " ("
 str_arq_ok3:    .asciiz " eventos convertidos)\n"
-str_arq_prompt: .asciiz "\nDigite o nome do arquivo .txt (ex: jojo.txt): "
+str_arq_prompt: .asciiz "\nDigite o nome do arquivo .txt (ex: musicas/jojo.txt): "
 
 str_toggle_off: .asciiz "\n[LOG] Modo Zero-Latency Audio ATIVADO (Log de notas: OFF).\n"
 str_toggle_on:  .asciiz "\n[LOG] Log detalhado de notas ATIVADO (Debug Console: ON).\n"
@@ -85,12 +85,12 @@ titulo_doom:      .asciiz "DOOM (E1M1) - At Doom's Gate"
 titulo_minecraft: .asciiz "Minecraft - C418 (Sweden / Calm)"
 titulo_jojo:      .asciiz "JoJo Parte 5 - Il Vento D'oro (3:46 - 4:00 Piano)"
 
-arq_ode:          .asciiz "ode_to_joy.txt"
-arq_chiptune:     .asciiz "chiptune.txt"
-arq_asa:          .asciiz "asa_branca.txt"
-arq_doom:         .asciiz "doom.txt"
-arq_minecraft:    .asciiz "minecraft.txt"
-arq_jojo:         .asciiz "jojo.txt"
+arq_ode:          .asciiz "musicas/ode_to_joy.txt"
+arq_chiptune:     .asciiz "musicas/chiptune.txt"
+arq_asa:          .asciiz "musicas/asa_branca.txt"
+arq_doom:         .asciiz "musicas/doom.txt"
+arq_minecraft:    .asciiz "musicas/minecraft.txt"
+arq_jojo:         .asciiz "musicas/jojo.txt"
 
 # Catalogo (16 bytes/entrada): titulo_ptr, inst_padrao, vol_padrao, arquivo_ptr
 .align 2
@@ -1285,10 +1285,18 @@ demo_inst_ok:
     addiu $sp, $sp, 8
     jr   $ra
 
-# Syscall 33: MIDI out sincrono ($a0=pitch, $a1=dur_ms, $a2=inst, $a3=vol)
+# Nota sincrona via Syscall 31 + Syscall 32: ajusta tempo (+25%) e adiciona 35ms de legato no MIDI para evitar estalos de corte
 tocar_nota_sync:
-    li   $v0, 33
+    blez $a1, sync_ret
+    srl  $t1, $a1, 2
+    addu $t0, $a1, $t1      # $t0 = duracao do Sleep (dur * 1.25)
+    addiu $a1, $t0, 35      # $a1 = duracao MIDI com leve legato para evitar estalo
+    li   $v0, 31
     syscall
+    move $a0, $t0
+    li   $v0, 32
+    syscall
+sync_ret:
     jr   $ra
 
 # Syscall 31: MIDI out assincrono ($a0=pitch, $a1=dur_ms, $a2=inst, $a3=vol)
@@ -1297,9 +1305,11 @@ tocar_nota_async:
     syscall
     jr   $ra
 
-# Syscall 32: Sleep em milissegundos ($a0=dur_ms)
+# Syscall 32: Sleep em milissegundos ($a0=dur_ms) com ajuste de +25% no tempo
 executar_pausa:
     blez $a0, pausa_ret
+    srl  $t1, $a0, 2
+    addu $a0, $a0, $t1
     li   $v0, 32
     syscall
 pausa_ret:
